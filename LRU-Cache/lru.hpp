@@ -88,8 +88,7 @@ struct lru_cache::iterator
 {
     friend struct lru_cache;
     
-    iterator();
-    iterator(node*);
+    iterator(node*, const lru_cache*);
     
     mapped_type const& operator*() const;
     
@@ -104,6 +103,8 @@ struct lru_cache::iterator
     
 private:
     node* current;
+    
+    const lru_cache* const belongs;
 };
 
 #endif /* lru_hpp */

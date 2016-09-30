@@ -26,7 +26,7 @@ lru_cache::~lru_cache() {
 
 lru_cache::iterator lru_cache::find(lru_cache::key_type tofind) {
     node *a = dofind(tofind);
-    return iterator(((a -> key == tofind && a != root) ? a : root));
+    return iterator(((a -> key == tofind && a != root) ? a : root), this);
 }
 
 lru_cache::node* lru_cache::dofind(lru_cache::key_type tofind) {
@@ -93,7 +93,7 @@ void lru_cache::removerefers(lru_cache::node* a) {
 
 std::pair<lru_cache::iterator, bool> lru_cache::insert(lru_cache::value_type tofind) {
     node *a = dofind(tofind.first);
-    if (a -> key == tofind.first && a != root) return std::pair<lru_cache::iterator, bool> (iterator(a), false);
+    if (a -> key == tofind.first && a != root) return std::pair<lru_cache::iterator, bool> (iterator(a, this), false);
     
     //if filled -- use old
     node *ins;
@@ -135,20 +135,22 @@ std::pair<lru_cache::iterator, bool> lru_cache::insert(lru_cache::value_type tof
         a -> right = ins;
     }
     
-    return std::pair<lru_cache::iterator, bool> (iterator(ins), true);
+    return std::pair<lru_cache::iterator, bool> (iterator(ins, this), true);
 }
 
 // Удаление элемента.
 // Все итераторы на указанный элемент инвалидируются.
 void lru_cache::erase(lru_cache::iterator it) {
-    if (it.current -> parent != nullptr) {
-        removerefers(it.current);
+    if (it.belongs == this) {
+        if (it.current -> parent != nullptr) {
+            removerefers(it.current);
         
-        if (it.current -> prev != nullptr) it.current -> prev -> next = it.current -> next;
-        if (it.current -> next != nullptr) it.current -> next -> prev = it.current -> prev;
+            if (it.current -> prev != nullptr) it.current -> prev -> next = it.current -> next;
+            if (it.current -> next != nullptr) it.current -> next -> prev = it. current -> prev;
         
-        --size;
-        delete it.current;
+            --size;
+            delete it.current;
+        }
     }
 }
 
@@ -156,16 +158,14 @@ void lru_cache::erase(lru_cache::iterator it) {
 lru_cache::iterator lru_cache::begin() const {
     node * a = root;
     while (a -> left != nullptr) a = a -> left;
-    return iterator(a);
+    return iterator(a, this);
 }
 // Возващает итератор на элемент следующий за элементом с максимальным ключом.
 lru_cache::iterator lru_cache::end() const {
-    return iterator(root);
+    return iterator(root, this);
 }
 
-lru_cache::iterator::iterator() : current(nullptr) {}
-
-lru_cache::iterator::iterator(lru_cache::node* a) : current(a) {}
+lru_cache::iterator::iterator(lru_cache::node* a, const lru_cache* cache) : current(a), belongs(cache) {}
 
 lru_cache::mapped_type const& lru_cache::iterator::operator*() const {
     return current -> mapped;
@@ -203,10 +203,10 @@ lru_cache::iterator lru_cache::iterator::operator--(int) {
     return res;
 }
 bool lru_cache::iterator::operator==(const iterator right) const {
-    return current == right.current;
+    return (belongs == right.belongs ? current == right.current : false);
 }
 bool lru_cache::iterator::operator!=(const iterator right) const {
-    return current != right.current;
+    return (belongs == right.belongs ? current != right.current : false);
 }
 
 using namespace std;
