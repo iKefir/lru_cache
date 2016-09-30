@@ -8,8 +8,6 @@
 
 #include "lru.hpp"
 
-
-// Создает пустой lru_cache с указанной capacity.
 lru_cache::lru_cache(size_t cap) : capacity(cap) {
     assert(cap > 0);
     root = new node();
@@ -17,9 +15,6 @@ lru_cache::lru_cache(size_t cap) : capacity(cap) {
     size = 0;
 }
 
-// Деструктор. Вызывается при удалении объектов lru_cache.
-// Инвалидирует все итераторы ссылающиеся на элементы этого lru_cache
-// (включая итераторы ссылающиеся на элементы следующие за последними).
 lru_cache::~lru_cache() {
     node * a = root, *b = a;
     while (a -> prev != nullptr) {
@@ -27,12 +22,8 @@ lru_cache::~lru_cache() {
         delete b;
         b = a;
     }
-    //invalidate iterators
 }
 
-// Поиск элемента.
-// Возвращает итератор на найденный элемент, либо end().
-// Если элемент найден, он помечается как наиболее поздно использованный.
 lru_cache::iterator lru_cache::find(lru_cache::key_type tofind) {
     node *a = dofind(tofind);
     return iterator(((a -> key == tofind && a != root) ? a : root));
@@ -72,18 +63,36 @@ lru_cache::node* lru_cache::dofind(lru_cache::key_type tofind) {
     return a;
 }
 
-// Вставка элемента.
-// 1. Если такой ключ уже присутствует, вставка не производиться, возвращается итератор
-//    на уже присутствующий элемент и false.
-// 2. Если такого ключа ещё нет, производиться вставка, возвращается итератор на созданный
-//    элемент и true.
-// Если после вставки число элементов кеша превышает capacity, самый давно не
-// использованный элемент удаляется. Все итераторы на него инвалидируется.
-// Вставленный либо найденный с помощью этой функции элемент помечается как наиболее поздно
-// использованный.
+
+void lru_cache::removerefers(lru_cache::node* a) {
+    bool parent;
+    if (a -> parent -> left == a) parent = 0;
+    else parent = 1;
+    //Если нет детей -- всё хорошо
+    if (a -> left == nullptr && a -> right == nullptr) {
+        (parent == false ? a -> parent -> left: a -> parent -> right) = nullptr;
+    }
+    //Если два ребенка -- подвесить левого вместо current правого к самому большому ребенку левого
+    else if (a -> left != nullptr && a -> right != nullptr) {
+        (parent == false ? a -> parent -> left : a -> parent -> right) = a -> left;
+        a -> left -> parent = a -> parent;
+        
+        node* trying = a -> left;
+        while (trying -> right != nullptr) trying = trying -> right;
+        
+        trying -> right = a -> right;
+        a -> right -> parent = trying;
+    }
+    //Если один ребенок -- подвесить вместо current
+    else {
+        (parent == false ? a -> parent -> left : a -> parent -> right) = (a -> left != nullptr ? a -> left : a -> right);
+        (a -> left != nullptr ? a -> left : a -> right) -> parent = a -> parent;
+    }
+
+}
+
 std::pair<lru_cache::iterator, bool> lru_cache::insert(lru_cache::value_type tofind) {
     node *a = dofind(tofind.first);
-    
     if (a -> key == tofind.first && a != root) return std::pair<lru_cache::iterator, bool> (iterator(a), false);
     
     //if filled -- use old
@@ -92,13 +101,17 @@ std::pair<lru_cache::iterator, bool> lru_cache::insert(lru_cache::value_type tof
         ins = new node();
         ++size;
     } else {
+        //should erase and insert
         ins = root -> prev;
+        removerefers(ins);
         if (ins -> prev != nullptr) ins -> prev -> next = ins -> next;
         if (ins -> next != nullptr) ins -> next -> prev = ins -> prev;
         ins -> prev = nullptr;
+        ins -> left = nullptr;
+        ins -> right = nullptr;
     }
     ins -> key = tofind.first;
-    ins -> mapped = &tofind.second;
+    ins -> mapped = new mapped_type(tofind.second);
     
     ins -> parent = a;
     
@@ -119,33 +132,13 @@ std::pair<lru_cache::iterator, bool> lru_cache::insert(lru_cache::value_type tof
 // Все итераторы на указанный элемент инвалидируются.
 void lru_cache::erase(lru_cache::iterator it) {
     if (it.current -> parent != nullptr) {
-        bool parent;
-        if (it.current -> parent -> left == it.current) parent = 0;
-        else parent = 1;
-        //Если нет детей -- всё хорошо
-        if (it.current -> left == nullptr && it.current -> right == nullptr) {
-            (parent == false ? it.current -> parent -> left: it.current -> parent -> right) = nullptr;
-        }
-        //Если два ребенка -- подвесить левого вместо current правого к самому большому ребенку левого
-        else if (it.current -> left != nullptr && it.current -> right != nullptr) {
-            (parent == false ? it.current -> parent -> left : it.current -> parent -> right) = it.current -> left;
-            it.current -> left -> parent = it.current -> parent;
-            
-            node* trying = it.current -> left;
-            while (trying -> right != nullptr) trying = trying -> right;
-            
-            trying -> right = it.current -> right;
-            it.current -> right -> parent = trying;
-        }
-        //Если один ребенок -- подвесить вместо current
-        else {
-            (parent == false ? it.current -> parent -> left : it.current -> parent -> right) = (it.current -> left != nullptr ? it.current -> left : it.current -> right);
-            (it.current -> left != nullptr ? it.current -> left : it.current -> right) -> parent = it.current -> parent;
-        }
+        removerefers(it.current);
         
         if (it.current -> prev != nullptr) it.current -> prev -> next = it.current -> next;
         if (it.current -> next != nullptr) it.current -> next -> prev = it.current -> prev;
         
+        --size;
+        delete it.current -> mapped;
         delete it.current;
     }
 }
@@ -161,8 +154,12 @@ lru_cache::iterator lru_cache::end() const {
     return iterator(root);
 }
 
-lru_cache::value_type const& lru_cache::iterator::operator*() const {
-    return value_type(current -> key, *(current -> mapped));
+lru_cache::iterator::iterator() : current(nullptr) {}
+
+lru_cache::iterator::iterator(lru_cache::node* a) : current(a) {}
+
+lru_cache::mapped_type const& lru_cache::iterator::operator*() const {
+    return *current -> mapped;
 }
 
 lru_cache::iterator& lru_cache::iterator::operator++() {
@@ -201,4 +198,23 @@ bool lru_cache::iterator::operator==(const iterator right) const {
 }
 bool lru_cache::iterator::operator!=(const iterator right) const {
     return current != right.current;
+}
+
+using namespace std;
+
+int main() {
+    lru_cache a(10);
+    int sch = 0;
+    for (int i = 0; i < 1000; i++) {
+        a.insert(std::make_pair(1000 - i, i));
+        if (i > 989) cout << 1000 - i << " " << i << endl;
+        sch++;
+    }
+    a.insert(std::make_pair(1, 999));
+    cout << sch << endl;
+    
+    for (int i = 0; i < 10; i++) {
+        cout << *a.begin() << endl;
+        a.erase(a.begin());
+    }
 }

@@ -17,7 +17,7 @@ struct lru_cache
 {
     // Вы можете определить эти тайпдефы по вашему усмотрению.
     typedef int key_type;
-    typedef std::string mapped_type;
+    typedef int mapped_type;
     typedef std::pair<key_type, mapped_type> value_type;
     
     // Bidirectional iterator
@@ -38,7 +38,6 @@ struct lru_cache
     // Возвращает итератор на элемент найденный элемент, либо end().
     // Если элемент найден, он помечается как наиболее поздно использованный.
     iterator find(key_type);
-    node* dofind(key_type);
     
     // Вставка элемента.
     // 1. Если такой ключ уже присутствует, вставка не производиться, возвращается итератор
@@ -67,12 +66,15 @@ private:
     node* root;
     
     node* queBegin;
+    
+    node* dofind(key_type);
+    void removerefers(node*);
 };
 
 struct lru_cache::node
 {
-    lru_cache::key_type     key;
-    lru_cache::mapped_type* mapped;
+    key_type     key;
+    mapped_type* mapped;
     
     node*        left;
     node*        right;
@@ -89,7 +91,7 @@ struct lru_cache::iterator
     iterator();
     iterator(node*);
     
-    value_type const& operator*() const;
+    mapped_type const& operator*() const;
     
     iterator& operator++();
     iterator operator++(int);
