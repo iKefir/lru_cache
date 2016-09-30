@@ -100,18 +100,29 @@ std::pair<lru_cache::iterator, bool> lru_cache::insert(lru_cache::value_type tof
     if (size < capacity) {
         ins = new node();
         ++size;
+        ins -> mapped = new mapped_type(tofind.second);
     } else {
         //should erase and insert
         ins = root -> prev;
+        if (ins == a) {
+            if (a -> right != nullptr) {
+                a = a -> right;
+                while (a -> left != nullptr) a = a -> left;
+            }
+            else if (a -> left != nullptr) {
+                a = a -> left;
+                while (a -> right != nullptr) a = a -> right;
+            }
+        }
         removerefers(ins);
         if (ins -> prev != nullptr) ins -> prev -> next = ins -> next;
         if (ins -> next != nullptr) ins -> next -> prev = ins -> prev;
         ins -> prev = nullptr;
         ins -> left = nullptr;
         ins -> right = nullptr;
+        *ins -> mapped = tofind.second;
     }
     ins -> key = tofind.first;
-    ins -> mapped = new mapped_type(tofind.second);
     
     ins -> parent = a;
     
@@ -203,18 +214,17 @@ bool lru_cache::iterator::operator!=(const iterator right) const {
 using namespace std;
 
 int main() {
-    lru_cache a(10);
+    lru_cache a(500);
     int sch = 0;
-    for (int i = 0; i < 1000; i++) {
-        a.insert(std::make_pair(1000 - i, i));
-        if (i > 989) cout << 1000 - i << " " << i << endl;
-        sch++;
+    for (int i = 0; i < 1000000; i++) {
+        for (int j = -1000; j < 1000; j++) {
+            a.insert(std::make_pair(j, j));
+            sch++;
+        }
     }
-    a.insert(std::make_pair(1, 999));
     cout << sch << endl;
     
-    for (int i = 0; i < 10; i++) {
-        cout << *a.begin() << endl;
+    for (int i = 0; i < 1000; i++) {
         a.erase(a.begin());
     }
 }
