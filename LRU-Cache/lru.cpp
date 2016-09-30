@@ -100,7 +100,6 @@ std::pair<lru_cache::iterator, bool> lru_cache::insert(lru_cache::value_type tof
     if (size < capacity) {
         ins = new node();
         ++size;
-        ins -> mapped = new mapped_type(tofind.second);
     } else {
         //should erase and insert
         ins = root -> prev;
@@ -120,9 +119,9 @@ std::pair<lru_cache::iterator, bool> lru_cache::insert(lru_cache::value_type tof
         ins -> prev = nullptr;
         ins -> left = nullptr;
         ins -> right = nullptr;
-        *ins -> mapped = tofind.second;
     }
     ins -> key = tofind.first;
+    ins -> mapped = tofind.second;
     
     ins -> parent = a;
     
@@ -149,7 +148,6 @@ void lru_cache::erase(lru_cache::iterator it) {
         if (it.current -> next != nullptr) it.current -> next -> prev = it.current -> prev;
         
         --size;
-        delete it.current -> mapped;
         delete it.current;
     }
 }
@@ -170,7 +168,7 @@ lru_cache::iterator::iterator() : current(nullptr) {}
 lru_cache::iterator::iterator(lru_cache::node* a) : current(a) {}
 
 lru_cache::mapped_type const& lru_cache::iterator::operator*() const {
-    return *current -> mapped;
+    return current -> mapped;
 }
 
 lru_cache::iterator& lru_cache::iterator::operator++() {
@@ -216,7 +214,7 @@ using namespace std;
 int main() {
     lru_cache a(500);
     int sch = 0;
-    for (int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < 10000; i++) {
         for (int j = -1000; j < 1000; j++) {
             a.insert(std::make_pair(j, j));
             sch++;

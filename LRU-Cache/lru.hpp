@@ -74,7 +74,7 @@ private:
 struct lru_cache::node
 {
     key_type     key;
-    mapped_type* mapped;
+    mapped_type mapped;
     
     node*        left;
     node*        right;
